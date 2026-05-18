@@ -36,7 +36,7 @@ Three providers are supported, selected via the `LLM_PROVIDER` environment varia
 
 | Provider | LLM model | Embedding model | Dimensions |
 |---|---|---|---|
-| `openai` (default) | gpt-4o | text-embedding-3-small | 1536 |
+| `openai` (default) | gpt-5-nano | text-embedding-3-small | 1536 |
 | `anthropic` | claude-opus-4-5 | text-embedding-3-small (via OpenAI) | 1536 |
 | `gemini` | gemini-2.5-flash | gemini-embedding-002 (via Google) | 1536 |
 

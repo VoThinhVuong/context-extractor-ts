@@ -23,7 +23,7 @@ function buildLlm(): BaseChatModel {
   }
   return new ChatOpenAI({
     apiKey: env.OPENAI_API_KEY,
-    model: 'gpt-4o',
+    model: 'gpt-5-nano',
   });
 }
 

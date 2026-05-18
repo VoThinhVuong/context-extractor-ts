@@ -1,0 +1,89 @@
+# Context Extraction and Master Reference Generator — llms.txt Reference
+
+System Purpose
+- A codebase-driven context extractor that walks a repository, distills architectural and implementation context with an LLM, and produces a coherent master reference document.
+- It binds raw source data, model-driven interpretation, and final documentation into a reproducible, searchable knowledge artifact set.
+
+## Core Data Models and Relationships
+- AgentStatus: enumerates lifecycle phases (ingesting, analyzing, summarizing, done, error).
+- AgentState: snapshot of progress; ties to DistilledInsight as the knowledge artifact produced after analysis.
+- DistilledInsight: structured artifact capturing distilled context extracted from code; feeds the summarizer and serves as a basis for the final master reference.
+- AgentStateAnnotation: contracts runtime state to a structured annotation, enabling safe transitions in the graph state machine.
+- ParsedFile: language-aware representation of a source file, including path, language (e.g., TypeScript, JavaScript), and collected signatures.
+- Signature (and subtype concepts like FunctionSignature, ClassSignature, TypeSignature): concrete code-element representations extracted from ASTs, feeding LLM analysis.
+- InsightRecord: persistence-friendly representation for embeddings (vector, metadata) stored in a vector store; used for similarity/search queries.
+- LlmsArtifact (via ArtifactWriter): human-readable outputs such as intermediate texts and the final master reference stored as artifacts.
+
+Data flow relationships
+- DirectoryWalker yields file paths → ast/signature extractor (Ast/Extractor) builds ParsedFile with Signatures.
+- Graph orchestrates three phases: Ingest (ParsedFiles/Signatures) → Analyze (DistilledInsight) → Summarize (Master Reference via LlmsTxt).
+- DBClient produces Embeddings for DistilledInsights/Signatures; InsightRecord upserts into vector store.
+- ArtifactWriter persists textual outputs (intermediate results and final master reference) to disk for traceability.
+
+## End-to-End Workflows (Business Perspective)
+- Ingest
+  - Discover repository boundaries via DirectoryWalker; enumerate relevant code files.
+  - Parse and collect language-aware signatures (ParsedFile + Signatures) to seed downstream analysis.
+- Analyze
+  - Use a shared LLM instance with Distiller prompts to extract meaningful, structured context from the collected signatures.
+  - Produce DistilledInsight as a compact knowledge artifact representing architecture, patterns, and actionable insights.
+- Summarize
+  - Apply Summarizer prompts to distill DistilledInsights into a coherent master reference document suitable for AI coding agents.
+  - Persist the final document and intermediate outputs via ArtifactWriter for replayability and review.
+- Orchestration & Guardrails
+  - Env-configured thresholds and token budgeting guide when to persist, prompt again, or transition phases.
+  - State machine enforces transitions only after prerequisite outputs are available; ensures deterministic, repeatable runs.
+
+## Primary External Dependencies and Roles
+- Language Model (LLM) API: drives the Distiller (inference to extract context) and Summarizer (final documentation).
+- Embeddings/Vector Store: DBClient creates embeddings for DistilledInsights or signatures and upserts them as InsightRecords for similarity search or contextual queries.
+- Filesystem I/O: FileHelpers and DirectoryWalker manage reading, writing, and directory traversal; ensure directory existence and extract file extensions.
+- Parser/AST Layer: astExtractor parses source files to generate ParsedFile and Signature data structures, language-aware.
+- Persistence Layer: ArtifactWriter persists textual artifacts (llmsTxt) for provenance and review.
+- Configuration/Runtime: Env config centralizes repository paths, model choices, and thresholds to parameterize ingestion, model invocation, and persistence.
+
+## Dominant Architectural Patterns
+- Layered pipeline / orchestration: clear separation between ingestion, analysis, and summarization with a governance graph controlling transitions.
+- State machine governance: AgentStatus, AgentState, and AgentStateAnnotation enforce valid lifecycle transitions between phases.
+- Model-driven data flow: signatures → distilled insights → master reference; continuous feedback via embeddings for retrieval.
+- Event-like orchestration: graph and node factories coordinate phase progression, mirroring a lightweight event-driven control flow.
+- Reproducibility-first design: Prompts, structured outputs, and artifact persistence ensure replayability and auditability.
+
+## Domain/Module Overview (by domain)
+- Graph (orchestrator)
+  - Governs end-to-end workflow: ingest, analyze, summarize; builds and shares a single LLM instance across phases.
+  - Enforces lifecycle boundaries and data flow cohesion between raw data, interpretation, and documentation.
+- Nodes (ingest, analyze, summarize)
+  - Ingest: gather repository content and file signatures.
+  - Analyze: extract meaningful, structured context via LLM.
+  - Summarize: convert insights into a master reference document.
+  - All nodes consume a shared LLM instance and emit typed outputs to drive the next stage.
+- State
+  - AgentStatus, AgentState, DistilledInsight, AgentStateAnnotation.
+  - Defines invariants for safe transitions and reliable knowledge capture at the end.
+- Config (env)
+  - Env: repository paths, model choices, thresholds, and other runtime parameters.
+  - Ensures external configuration governs analysis scope, model invocation, and results storage/surface.
+- Prompts
+  - Distiller: guides the LLM to act as an expert software architect extracting structured context.
+  - Summarizer: guides the final master reference doc creation for AI coding agents.
+  - Prompts enforce output formats, depth, and usefulness for replayability and navigation.
+- Entry/Boot (index)
+  - Orchestration of startup, component bootstrapping, repository walking, signature extraction, analysis, and final summarization.
+  - Defines the outer lifecycle boundary and repeatable generation process.
+- Parser (astExtractor)
+  - Translates source files into ParsedFile data with language classification and signatures.
+  - Produces precise, language-aware catalogs of code elements for LLM input.
+- DirectoryWalker
+  - Enumerates code files to analyze; boundary for scope and completeness.
+- Storage (artifactWriter, dbClient)
+  - ArtifactWriter: persists human-readable artifacts (llmsTxt) to disk.
+  - DBClient: creates embeddings, upserts InsightRecords into vector store, and manages resource cleanup.
+- Utils
+  - fileHelpers: robust I/O helpers; ensure directory existence and safe file operations.
+  - tokenCounter: budgets tokens to manage model usage and progress decisions.
+
+## Operational Considerations
+- Reproducibility: fixed prompts, structured outputs, and saved artifacts enable deterministic re-runs and audit trails.
+- Cost and limits: tokenCounter informs when to persist or re-invoke models to respect budgets.
+- Extensibility: modular node factories and data models support adding new languages, signatures, or downstream analyses without rearchitecting the pipeline.
