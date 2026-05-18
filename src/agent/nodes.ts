@@ -4,7 +4,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { walkDirectory } from '../parser/directoryWalker';
 import { extractFileSignatures } from '../parser/astExtractor';
 import type { ParsedFile } from '../parser/astExtractor';
-import { upsertInsight } from '../storage/supabaseClient';
+import { upsertInsight } from '../storage/dbClient';
 import { writeLlmsTxt } from '../storage/artifactWriter';
 import { calculateTokenCount } from '../utils/tokenCounter';
 import { DISTILLER_SYSTEM_PROMPT, SUMMARIZER_SYSTEM_PROMPT } from '../config/prompts';
@@ -105,7 +105,7 @@ export function createAnalyzeNode(llm: BaseChatModel) {
 
 /**
  * Summarize node: synthesizes all distilled insights into a final llms.txt document,
- * stores each insight with its vector embedding in Supabase, and writes the artifact to disk.
+ * stores each insight with its vector embedding in PostgreSQL, and writes the artifact to disk.
  */
 export function createSummarizeNode(llm: BaseChatModel) {
   return async (state: AgentState): Promise<Partial<AgentState>> => {
@@ -127,8 +127,8 @@ export function createSummarizeNode(llm: BaseChatModel) {
         ? response.content
         : JSON.stringify(response.content);
 
-    // Store each insight as a vector embedding in Supabase.
-    console.log('[Summarize] Storing insights in Supabase...');
+    // Store each insight as a vector embedding in PostgreSQL.
+    console.log('[Summarize] Storing insights in PostgreSQL...');
     await Promise.all(
       state.distilledInsights.map((insight) =>
         upsertInsight({

@@ -1,6 +1,7 @@
 import { StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 
 import { env } from '../config/env';
@@ -12,6 +13,12 @@ function buildLlm(): BaseChatModel {
     return new ChatAnthropic({
       apiKey: env.ANTHROPIC_API_KEY!,
       model: 'claude-opus-4-5',
+    });
+  }
+  if (env.LLM_PROVIDER === 'gemini') {
+    return new ChatGoogleGenerativeAI({
+      apiKey: env.GOOGLE_API_KEY!,
+      model: 'gemini-2.5-flash-lite',
     });
   }
   return new ChatOpenAI({
